@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+
+  # ── Forward Proxy (선박 측) ──────────────────────────────
+  forward-proxy:
+    build: .
+    container_name: forward-proxy
+    # network_mode: host → Docker bridge NAT 우회, HAProxy가 실제 클라이언트 IP를 직접 확인
+    # (ports 설정 불필요 — 호스트 포트에 직접 바인딩됨)
+    network_mode: host
+    environment:
+      SHORE_HOST: "192.168.50.4"
+      SHORE_PORT: "28080"
+    restart: unless-stopped
+
+    # ── 로그 드라이버: local (json-file 대비 디스크 I/O 절감) ──
+    # - protobuf 압축 저장 → json-file 보다 파일 크기 ~70% 감소
+    # - 기본 압축 비활성화 시 추가 CPU 없이 저용량 유지
+    logging:
+      driver: "local"
+      options:
+        max-size: "5m"
+        max-file: "3"     # 총 ~15MB
+
