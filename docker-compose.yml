@@ -10,8 +10,8 @@ services:
     # (ports 설정 불필요 — 호스트 포트에 직접 바인딩됨)
     network_mode: host
     environment:
-      SHORE_HOST: "192.168.50.4"
-      SHORE_PORT: "28080"
+      SHORE_HOST: "localhost"
+      SHORE_PORT: "29090"
     restart: unless-stopped
 
     # ── 로그 드라이버: local (json-file 대비 디스크 I/O 절감) ──
