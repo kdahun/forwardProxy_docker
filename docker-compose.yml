@@ -13,6 +13,8 @@ services:
       SHORE_HOST: "localhost"
       SHORE_PORT: "29090"
     restart: unless-stopped
+    volumes:
+      - ./certs:/etc/haproxy/certs:ro  # mTLS 인증서 (client.pem, client.crt, server.crt)
 
     # ── 로그 드라이버: local (json-file 대비 디스크 I/O 절감) ──
     # - protobuf 압축 저장 → json-file 보다 파일 크기 ~70% 감소
