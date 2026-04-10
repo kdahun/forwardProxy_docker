@@ -12,9 +12,10 @@ services:
     environment:
       SHORE_HOST: "localhost"
       SHORE_PORT: "29090"
+      CA_URL: "http://localhost:8888/sign"  # CA 서버 주소로 변경 필요
     restart: unless-stopped
     volumes:
-      - ./certs:/etc/haproxy/certs:ro  # mTLS 인증서 (client.pem, client.crt, server.crt)
+      - ./certs:/etc/haproxy/certs:rw  # mTLS 인증서 (ship.key, ca.crt → client.crt 자동 발급)
 
     # ── 로그 드라이버: local (json-file 대비 디스크 I/O 절감) ──
     # - protobuf 압축 저장 → json-file 보다 파일 크기 ~70% 감소
