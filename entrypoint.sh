@@ -2,7 +2,7 @@
 set -e
 
 CERT_DIR="/etc/haproxy/certs"
-CA_URL="${CA_URL:-http://ca-server/sign}"
+CA_URL="${CA_URL:-http://ca-server/api/admin/proxy-cert}"
 SHORE_HOST="${SHORE_HOST:-localhost}"
 SHORE_PORT="${SHORE_PORT:-29090}"
 
@@ -16,14 +16,26 @@ if [ ! -f "$CERT_DIR/client.crt" ]; then
     # CSR 생성 (client.key는 이미 존재)
     openssl req -new \
       -key "$CERT_DIR/client.key" \
-      -subj "/CN=ship-haproxy/O=IHO/C=KR" \
+      -subj "/CN=Shore Gateway Forward Proxy/O=KRINS/C=KR" \
       -out "$CERT_DIR/client.csr"
 
-    # CA 서버로 CSR 전송 → CRT 수신
+    # JSON 페이로드 생성 (jq가 CSR 개행문자 이스케이프 자동 처리)
+    PAYLOAD=$(jq -n \
+      --arg csr "$(cat "$CERT_DIR/client.csr")" \
+      '{
+        certType: "FORWARD_PROXY",
+        csr: $csr,
+        subjectCn: "Shore Gateway Forward Proxy",
+        organization: "KRINS",
+        country: "KR",
+        uris: ["urn:mrn:mcp:device:krins:shore-gw-fwd"]
+      }')
+
+    # CA 서버로 JSON 전송 → 응답에서 certificatePem 추출 → client.crt 저장
     curl -sf -X POST "$CA_URL" \
-      -F "csr=@$CERT_DIR/client.csr" \
-      -F "type=client" \
-      -o "$CERT_DIR/client.crt"
+      -H "Content-Type: application/json" \
+      -d "$PAYLOAD" \
+    | jq -r '.data.certificatePem' > "$CERT_DIR/client.crt"
 
     # HAProxy용 PEM 합본 생성 (crt + key)
     cat "$CERT_DIR/client.crt" "$CERT_DIR/client.key" > "$CERT_DIR/client.pem"
