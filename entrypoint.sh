@@ -19,31 +19,44 @@ if [ ! -f "$CERT_DIR/client.crt" ]; then
       -subj "/CN=Shore Gateway Forward Proxy/O=KRINS/C=KR" \
       -out "$CERT_DIR/client.csr"
 
-    # JSON 페이로드 생성 (jq가 CSR 개행문자 이스케이프 자동 처리)
-    PAYLOAD=$(jq -n \
-      --arg csr "$(cat "$CERT_DIR/client.csr")" \
-      '{
-        certType: "FORWARD_PROXY",
-        csr: $csr,
-        subjectCn: "Shore Gateway Forward Proxy",
-        organization: "KRINS",
-        country: "KR",
-        uris: ["urn:mrn:mcp:device:krins:shore-gw-fwd"]
-      }')
+    # JSON 페이로드 생성
+    PAYLOAD=$(python3 -c "
+import json
+csr = open('$CERT_DIR/client.csr').read()
+print(json.dumps({
+    'certType':     'FORWARD_PROXY',
+    'csr':          csr,
+    'subjectCn':    'Shore Gateway Forward Proxy',
+    'organization': 'KRINS',
+    'country':      'KR',
+    'uris':         ['urn:mrn:mcp:device:krins:shore-gw-fwd']
+}))
+")
 
     # CA 서버로 JSON 전송 → 응답에서 certificatePem 추출 → client.crt 저장
-    curl -sf -X POST "$CA_URL" \
+    RESPONSE=$(curl -sf -X POST "$CA_URL" \
+      -u "admin:admin1234" \
       -H "Content-Type: application/json" \
-      -d "$PAYLOAD" \
-    | jq -r '.data.certificatePem' > "$CERT_DIR/client.crt"
+      -d "$PAYLOAD")
 
-    # HAProxy용 PEM 합본 생성 (crt + key)
-    cat "$CERT_DIR/client.crt" "$CERT_DIR/client.key" > "$CERT_DIR/client.pem"
-
+    echo "$RESPONSE" | python3 -c "
+import json, sys
+body = json.load(sys.stdin)
+if not body.get('success'):
+    print('[entrypoint][ERROR] 인증서 발급 실패:', body.get('message'))
+    sys.exit(1)
+pem = body['data']['certificatePem']
+with open('$CERT_DIR/client.crt', 'w') as f:
+    f.write(pem)
+"
     echo "[entrypoint] client.crt 발급 완료"
 else
     echo "[entrypoint] client.crt 존재 → CA 요청 생략"
 fi
+
+# HAProxy용 PEM 합본 생성 (crt + key) - 항상 재생성 (이전 실행에서 깨진 경우 복구)
+cat "$CERT_DIR/client.crt" "$CERT_DIR/client.key" > "$CERT_DIR/client.pem"
+echo "[entrypoint] client.pem 생성 완료"
 
 # 환경변수를 실제 값으로 치환한 설정 파일 생성
 sed \
