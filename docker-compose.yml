@@ -9,10 +9,12 @@ services:
     # network_mode: host → Docker bridge NAT 우회, HAProxy가 실제 클라이언트 IP를 직접 확인
     # (ports 설정 불필요 — 호스트 포트에 직접 바인딩됨)
     network_mode: host
+    env_file:
+      - .env
     environment:
-      SHORE_HOST: "192.168.50.241"
-      SHORE_PORT: "29090"
-      CA_URL: "http://192.168.50.9:8888/sign"  # CA 서버 주소로 변경 필요
+      SHORE_HOST: ${SHORE_HOST}
+      SHORE_PORT: ${SHORE_PORT}
+      CA_URL: ${CA_URL}
     restart: unless-stopped
     volumes:
       - ./certs:/etc/haproxy/certs:rw  # mTLS 인증서 (ship.key, ca.crt → client.crt 자동 발급)
